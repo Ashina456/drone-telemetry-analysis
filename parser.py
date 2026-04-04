@@ -11,12 +11,19 @@ class parser:
             msg = mlog.recv_match(type='GPS', blocking=False)
             if msg is None:
                 break
+
+            # Фільтр: тільки 3D Fix (Status >= 3) і достатня кількість супутників
+            if msg.Status < 3 or msg.NSats < 6:
+                continue
+
             gps_records.append({
                 'timestamp': msg._timestamp,
-                'lat': msg.Lat, #широта в градусах × 10^-7
-                'lon': msg.Lng, #довгота в градусах × 10^-7
-                'alt': msg.Alt, #висота в метрах
-                'spd': msg.Spd, #горизонтальна швидкість м/с
+                'lat': msg.Lat,
+                'lon': msg.Lng,
+                'alt': msg.Alt,
+                'spd': msg.Spd,
+                'status': msg.Status,   # опціонально, для дебагу
+                'nsats': msg.NSats,     # опціонально, для дебагу
             })
         df_gps = pd.DataFrame(gps_records)
         return df_gps
