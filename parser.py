@@ -1,6 +1,6 @@
 import pandas as pd
 from pymavlink import mavutil
-
+file_pass = 'C:\\Users\\user\\Documents\\Uni\\СTF\\01.04.26\\codeDay1\\00000001.BIN'
 class parser:
     @staticmethod
     def gpsData(file_path):
@@ -11,13 +11,21 @@ class parser:
             msg = mlog.recv_match(type='GPS', blocking=False)
             if msg is None:
                 break
+
+            # Фільтр: тільки 3D Fix (Status >= 3) і достатня кількість супутників
+            if msg.Status < 3 or msg.NSats < 6:
+                continue
+
             gps_records.append({
                 'timestamp': msg._timestamp,
-                'lat': msg.Lat, #широта в градусах × 10^-7
-                'lon': msg.Lng, #довгота в градусах × 10^-7
-                'alt': msg.Alt, #висота в метрах
-                'spd': msg.Spd, #горизонтальна швидкість м/с
+                'lat': msg.Lat,
+                'lon': msg.Lng,
+                'alt': msg.Alt,
+                'spd': msg.Spd,
+                'status': msg.Status,   # опціонально, для дебагу
+                'nsats': msg.NSats,     # опціонально, для дебагу
             })
+
         df_gps = pd.DataFrame(gps_records)
         return df_gps
     @staticmethod
@@ -38,3 +46,7 @@ class parser:
         df_imu = pd.DataFrame(imu_records)
         df_imu['dt'] = df_imu['timestamp'].diff().fillna(0)
         return df_imu
+df = pd.DataFrame(parser.gpsData(file_pass))
+
+# Save to CSV
+df.to_csv('my_data.csv', index=False)
