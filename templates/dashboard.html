@@ -1,0 +1,867 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Falcons{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .dashboard {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 64px);
+    overflow: hidden;
+  }
+
+  /* top bar */
+  .dash-topbar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--g3);
+    background: var(--g1);
+    flex-shrink: 0;
+  }
+
+  .dash-breadcrumb {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dash-breadcrumb span { color: var(--acid); }
+
+  .dash-topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  .btn-sm {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 8px 18px;
+    text-decoration: none;
+    border: 1px solid var(--g5);
+    color: var(--text-dim);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+  }
+  .btn-sm:hover { color: var(--acid); border-color: var(--acid-dim); background: var(--acid-faint); }
+
+  /* ── three-column body ── */
+  .dash-body {
+    display: grid;
+    grid-template-columns: 280px 1fr 300px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* ── LEFT: metrics + altitude + AI ── */
+  .dash-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-right: 1px solid var(--g3);
+    overflow-y: auto;
+  }
+
+  .left-section {
+    padding: 20px 20px;
+    border-bottom: 1px solid var(--g3);
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  /* metric cells stacked vertically */
+  .metrics-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--g3);
+    border: 1px solid var(--g3);
+  }
+
+  .metric-cell {
+    background: var(--g2);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .metric-cell-val {
+    font-family: var(--display);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--acid);
+    line-height: 1;
+  }
+  .metric-cell-val.placeholder { color: var(--g5); font-size: 20px; }
+
+  .metric-cell-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* altitude profile */
+  .alt-wrap {
+    position: relative;
+    height: 130px;
+    background: var(--g2);
+    border: 1px solid var(--g4);
+    cursor: crosshair;
+  }
+
+  #altProfile { width: 100%; height: 100%; display: block; }
+
+  .alt-tooltip {
+    position: absolute;
+    display: none;
+    background: var(--g3);
+    border: 1px solid var(--acid-dim);
+    padding: 5px 9px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--acid);
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    z-index: 10;
+    white-space: nowrap;
+  }
+
+  /* AI box */
+  .ai-box { background: var(--g2); border: 1px solid var(--g4); padding: 16px 18px; }
+
+  .ai-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--g4);
+  }
+
+  .ai-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    background: var(--acid-faint);
+    border: 1px solid var(--wire);
+    color: var(--acid-dim);
+  }
+
+  .ai-model-tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.05em;
+    margin-left: auto;
+  }
+
+  .placeholder-line {
+    height: 10px;
+    background: var(--g3);
+    border-radius: 2px;
+    margin-bottom: 7px;
+    position: relative;
+    overflow: hidden;
+  }
+  .placeholder-line::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 30%, rgba(57,255,110,0.04) 50%, transparent 70%);
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
+
+  .ai-anomaly-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--g4); }
+
+  .anomaly-chip {
+    font-family: var(--mono);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .chip-pending { color: var(--text-faint); border-color: var(--g4); }
+  .chip-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+  /* ── CENTRE: 3D plot, full height ── */
+  .dash-centre {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--g3);
+    overflow: hidden;
+  }
+
+  .plot-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--g3);
+    background: var(--g1);
+    flex-shrink: 0;
+  }
+
+  .plot-title {
+    font-family: var(--display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .view-btns { display: flex; gap: 4px; }
+
+  .view-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border: 1px solid var(--g5);
+    color: var(--text-dim);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .view-btn:hover, .view-btn.active { color: var(--acid); border-color: var(--acid-dim); background: var(--acid-faint); }
+
+  #plot3d { flex: 1; min-height: 0; }
+
+  /* ── RIGHT: session history ── */
+  .dash-sidebar {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-head {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--g3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .sidebar-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .sidebar-count {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--acid-dim);
+    letter-spacing: 0.06em;
+  }
+
+  .sidebar-scroll { flex: 1; overflow-y: auto; }
+
+  .sidebar-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .sidebar-empty-icon { opacity: 0.2; }
+
+  .sidebar-empty-text {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.06em;
+    line-height: 1.8;
+  }
+
+  .session-card { border-bottom: 1px solid var(--g3); transition: background 0.15s; }
+  .session-card:hover { background: var(--g2); }
+
+  .session-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .session-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--acid-dim); flex-shrink: 0; }
+
+  .session-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    letter-spacing: 0.04em;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .session-time { font-family: var(--mono); font-size: 9px; color: var(--text-faint); flex-shrink: 0; }
+  .session-chevron { width: 10px; height: 10px; flex-shrink: 0; transition: transform 0.2s; }
+  .session-card.expanded .session-chevron { transform: rotate(90deg); }
+
+  .session-body { display: none; padding: 0 18px 14px; flex-direction: column; gap: 8px; }
+  .session-card.expanded .session-body { display: flex; }
+
+  .session-mini-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--g3); }
+  .mini-metric { background: var(--g2); padding: 8px 10px; }
+  .mini-metric-val { font-family: var(--display); font-size: 16px; font-weight: 700; color: var(--acid); line-height: 1; margin-bottom: 2px; }
+  .mini-metric-val.ph { color: var(--g5); font-size: 13px; }
+  .mini-metric-label { font-family: var(--mono); font-size: 8px; color: var(--text-faint); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .mini-graph { height: 48px; background: var(--g3); border: 1px solid var(--g4); position: relative; overflow: hidden; }
+
+  .session-open-btn {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--acid-dim);
+    text-decoration: none;
+    padding: 6px 10px;
+    border: 1px solid var(--wire);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+    background: var(--acid-faint);
+    justify-content: center;
+  }
+  .session-open-btn:hover { color: var(--acid); border-color: var(--acid-dim); }
+
+  .sidebar-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--g3);
+    flex-shrink: 0;
+  }
+
+  /* empty state (no session loaded) */
+  .dash-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 60px 32px;
+    text-align: center;
+  }
+  .dash-empty-falcon { opacity: 0.06; animation: float 4s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+  .dash-empty-title { font-family: var(--display); font-size: 28px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
+  .dash-empty-sub { font-family: var(--mono); font-size: 11px; color: var(--text-faint); letter-spacing: 0.06em; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+
+  <!-- top bar -->
+  <div class="dash-topbar">
+    <div class="dash-breadcrumb">
+      FALCONS &nbsp;/&nbsp; DASHBOARD
+      {% if session %}&nbsp;/&nbsp; <span>{{ session.label }}</span>{% endif %}
+    </div>
+    <div class="dash-topbar-actions">
+      <a href="/upload" class="btn-sm">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M5 1 L5 7 M3 3 L5 1 L7 3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M1 8 L9 8" stroke-linecap="round"/>
+        </svg>
+        Upload New
+      </a>
+    </div>
+  </div>
+
+  <div class="dash-body">
+
+    <!-- ── LEFT: metrics / altitude / AI ── -->
+    <div class="dash-left">
+      {% if session %}
+
+        <div class="left-section">
+          <div class="section-label">Mission — {{ session.filename }}</div>
+          <div class="metrics-stack">
+            <div class="metric-cell">
+              <div class="metric-cell-val placeholder">—</div>
+              <div class="metric-cell-label">Duration (s)</div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-cell-val placeholder">—</div>
+              <div class="metric-cell-label">Distance (m)</div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-cell-val placeholder">—</div>
+              <div class="metric-cell-label">Max Speed (m/s)</div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-cell-val placeholder">—</div>
+              <div class="metric-cell-label">Max Altitude (m)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="left-section">
+          <div class="section-label">Altitude Profile</div>
+          <div class="alt-wrap bracketed">
+            <canvas id="altProfile"></canvas>
+            <div class="alt-tooltip" id="altTooltip"></div>
+          </div>
+        </div>
+
+        <div class="left-section" style="border-bottom:none;flex:1">
+          <div class="section-label">AI Mission Overview</div>
+          <div class="ai-box bracketed">
+            <div class="ai-header">
+              <div class="ai-badge">AI Analysis</div>
+              <div class="ai-model-tag">// LLM PLACEHOLDER</div>
+            </div>
+            <div>
+              <div class="placeholder-line" style="width:95%"></div>
+              <div class="placeholder-line" style="width:88%"></div>
+              <div class="placeholder-line" style="width:92%"></div>
+              <div class="placeholder-line" style="width:70%"></div>
+              <div class="placeholder-line" style="width:85%;margin-top:10px"></div>
+              <div class="placeholder-line" style="width:60%"></div>
+            </div>
+            <div class="ai-anomaly-row">
+              <div class="anomaly-chip chip-pending"><span class="chip-dot"></span> Altitude drop</div>
+              <div class="anomaly-chip chip-pending"><span class="chip-dot"></span> Speed violation</div>
+              <div class="anomaly-chip chip-pending"><span class="chip-dot"></span> IMU spike</div>
+            </div>
+          </div>
+        </div>
+
+      {% else %}
+        <div class="dash-empty">
+          <svg class="dash-empty-falcon" width="100" height="100" viewBox="0 0 120 120" fill="none">
+            <path d="M60 8 L92 42 L76 42 L100 74 L72 65 L78 108 L60 88 L42 108 L48 65 L20 74 L44 42 L28 42 Z" fill="var(--acid)"/>
+            <circle cx="60" cy="48" r="9" fill="var(--g0)"/>
+          </svg>
+          <div class="dash-empty-title">No Mission</div>
+          <p class="dash-empty-sub">Upload a .bin log to begin</p>
+          <a href="/upload" class="btn btn-primary" style="margin-top:8px">Upload Log</a>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- ── CENTRE: full-height 3D plot ── -->
+    <div class="dash-centre">
+      <div class="plot-head">
+        <span class="plot-title">3D Trajectory — ENU Space</span>
+        <div class="view-btns">
+          <button class="view-btn" onclick="setView('top',this)">Top</button>
+          <button class="view-btn" onclick="setView('front',this)">Front</button>
+          <button class="view-btn" onclick="setView('side',this)">Side</button>
+          <button class="view-btn active" onclick="setView('free',this)">Free</button>
+        </div>
+      </div>
+      <div id="plot3d"></div>
+    </div>
+
+    <!-- ── RIGHT: session history ── -->
+    <div class="dash-sidebar">
+      <div class="sidebar-head">
+        <span class="sidebar-title">Session History</span>
+        <span class="sidebar-count" id="sidebarCount">0 flights</span>
+      </div>
+
+      <div class="sidebar-scroll">
+        <div id="sidebarEmpty" class="sidebar-empty">
+          <svg class="sidebar-empty-icon" width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <path d="M18 3 L28 13 L24 13 L30 21 L22 19 L24 31 L18 26 L12 31 L14 19 L6 21 L12 13 L8 13 Z" fill="var(--acid)"/>
+            <circle cx="18" cy="16" r="3" fill="var(--g0)"/>
+          </svg>
+          <div class="sidebar-empty-text">No previous flights<br>in this session.<br>Upload a log to begin.</div>
+        </div>
+        <div id="sidebarList"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text-faint);letter-spacing:0.08em;line-height:1.8">
+          // SESSION DATA ONLY<br>
+          // CLEARED ON PAGE RELOAD<br>
+          // NO PERSISTENT STORAGE
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── sidebar ───────────────────────────────────────────────────────────────────
+function buildSidebar() {
+  const sessions  = Sessions.all();
+  const list      = document.getElementById('sidebarList');
+  const empty     = document.getElementById('sidebarEmpty');
+  const countEl   = document.getElementById('sidebarCount');
+  const currentId = '{{ session.id if session else "" }}';
+
+  countEl.textContent = sessions.length + (sessions.length === 1 ? ' flight' : ' flights');
+
+  if (!sessions.length) { empty.style.display = 'flex'; return; }
+  empty.style.display = 'none';
+
+  list.innerHTML = sessions.map(s => `
+    <div class="session-card ${s.id === currentId ? 'expanded' : ''}" id="sc-${s.id}">
+      <div class="session-card-header" onclick="toggleSession('${s.id}')">
+        <div class="session-dot" style="${s.id === currentId ? 'background:var(--acid)' : ''}"></div>
+        <span class="session-name">${s.label || s.filename}</span>
+        <span class="session-time">${s.ts || ''}</span>
+        <svg class="session-chevron" viewBox="0 0 10 10" fill="none" stroke="var(--text-faint)" stroke-width="1.2">
+          <path d="M3 2 L7 5 L3 8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="session-body">
+        <div class="session-mini-metrics">
+          <div class="mini-metric"><div class="mini-metric-val ph">—</div><div class="mini-metric-label">Duration</div></div>
+          <div class="mini-metric"><div class="mini-metric-val ph">—</div><div class="mini-metric-label">Distance</div></div>
+          <div class="mini-metric"><div class="mini-metric-val ph">—</div><div class="mini-metric-label">Max speed</div></div>
+          <div class="mini-metric"><div class="mini-metric-val ph">—</div><div class="mini-metric-label">Max alt.</div></div>
+        </div>
+        <div class="mini-graph" id="mg-${s.id}"></div>
+        <a href="/dashboard/${s.id}" class="session-open-btn">
+          <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="1.2">
+            <path d="M1 8 L8 1 M4 1 L8 1 L8 5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Open full dashboard
+        </a>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleSession(id) {
+  document.getElementById('sc-' + id).classList.toggle('expanded');
+}
+
+buildSidebar();
+
+// ── 3D Plotly graph ───────────────────────────────────────────────────────────
+const plotData = {{ plot_data | safe }};
+let plotInitialised = false;
+
+function initPlot() {
+  if (!plotData || !plotData.E) return;
+
+  const E = plotData.E;
+  const N = plotData.N;
+  const U = plotData.U;
+
+  const el = document.getElementById('plot3d');
+  if (!el) return;
+
+  // ── LOCK RANGES (prevents zoom jumping) ────────────────────────────────────
+  const xMin = Math.min(...E), xMax = Math.max(...E);
+  const yMin = Math.min(...N), yMax = Math.max(...N);
+  const zMin = Math.min(...U), zMax = Math.max(...U);
+
+  const colorData = plotData.spd.length ? plotData.spd : U;
+
+  // ── INITIAL TRACES ─────────────────────────────────────────────────────────
+ const traces = [
+    {
+      type: 'scatter3d', mode: 'lines',
+      x: plotData.E, y: plotData.N, z: plotData.U,
+      line: {
+        color: plotData.spd.length ? plotData.spd : plotData.U,
+        colorscale: 'Viridis', width: 4,
+        colorbar: {
+          thickness: 10, len: 0.45,
+          tickfont: { color: '#a0a8b8', size: 9 },
+          title: { text: plotData.spd.length ? 'Speed (m/s)' : 'Alt (m)', font: { color: '#a0a8b8', size: 9 } },
+        },
+      },
+      hovertemplate: 'E: %{x:.1f} m<br>N: %{y:.1f} m<br>Alt: %{z:.1f} m<extra></extra>',
+      name: 'Trajectory',
+    },
+    {
+      type: 'scatter3d', mode: 'markers+text',
+      x: [plotData.takeoff.E], y: [plotData.takeoff.N], z: [plotData.takeoff.U],
+      marker: { size: 7, color: '#F0F24B' },
+      text: ['Current'], textposition: 'top center',
+      textfont: { color: '#F0F24B', size: 11 },
+      showlegend: false,
+    },
+    {
+      type: 'scatter3d', mode: 'markers+text',
+      x: [plotData.takeoff.E], y: [plotData.takeoff.N], z: [plotData.takeoff.U],
+      marker: { size: 7, color: '#' },
+      text: ['Takeoff'], textposition: 'top center',
+      textfont: { color: '#39ff6e', size: 11 },
+      showlegend: false,
+    },
+    {
+      type: 'scatter3d', mode: 'markers+text',
+      x: [plotData.landing.E], y: [plotData.landing.N], z: [plotData.landing.U],
+      marker: { size: 7, color: '#ff4545', symbol: 'square' },
+      text: ['Landing'], textposition: 'top center',
+      textfont: { color: '#ff4545', size: 11 },
+      showlegend: false,
+    },
+  ];
+
+  // ── FRAMES (animation) ─────────────────────────────────────────────────────
+  const frames = [];
+  const step = 2; // smoother motion (lower = smoother)
+
+  for (let i = 1; i < E.length; i += step) {
+    frames.push({
+      name: String(i),
+      data: [
+        {
+          x: E.slice(0, i),
+          y: N.slice(0, i),
+          z: U.slice(0, i),
+          line: {
+            color: plotData.spd.length ? plotData.spd : plotData.U,
+            colorscale: 'Viridis',
+            width: 4
+          }
+        },
+        {
+          x: [E[i]],
+          y: [N[i]],
+          z: [U[i]]
+        }
+      ]
+    });
+  }
+
+  // ── LAYOUT ─────────────────────────────────────────────────────────────────
+  const layout = {
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor:  'rgba(0,0,0,0)',
+    margin: { l: 0, r: 0, t: 0, b: 0 },
+
+    uirevision: 'lock-camera',
+
+    scene: {
+      bgcolor: 'rgba(14,19,24,1)',
+      camera: { eye: { x: 1.4, y: 1.4, z: 1.0 } },
+      xaxis: { title: 'East (m)',  tickfont: { color: '#5a6478', size: 9 }, gridcolor: '#1e2535', showbackground: true, backgroundcolor: 'rgba(14,19,24,0.6)', zeroline: false },
+      yaxis: { title: 'North (m)', tickfont: { color: '#5a6478', size: 9 }, gridcolor: '#1e2535', showbackground: true, backgroundcolor: 'rgba(14,19,24,0.6)', zeroline: false },
+      zaxis: { title: 'Alt (m)',   tickfont: { color: '#5a6478', size: 9 }, gridcolor: '#1e2535', showbackground: true, backgroundcolor: 'rgba(14,19,24,0.6)', zeroline: false },
+      aspectmode: 'data',
+      // aspectratio: { x: 1, y: 1, z: 0.7 }
+    },
+    legend: { font: { color: '#a0a8b8' },
+    },
+
+    // ── CONTROLS ─────────────────────────────────────────────────────────────
+    updatemenus: [
+      {
+        type: 'buttons',
+        showactive: false,
+        x: 0.1,
+        y: 1.0,
+        buttons: [
+          {
+            label: 'Play',
+            method: 'animate',
+            args: [null, {
+              frame: { duration: 40, redraw: true }, // cinematic speed
+              transition: { duration: 0 },
+              fromcurrent: true,
+              mode: 'immediate'
+            }]
+          },
+          {
+            label: 'Pause',
+            method: 'animate',
+            args: [[null], {
+              frame: { duration: 0 },
+              mode: 'immediate'
+            }]
+          }
+        ]
+      }
+    ]
+  };
+
+  // ── INIT + LOAD FRAMES ─────────────────────────────────────────────────────
+  Plotly.newPlot('plot3d', traces, layout, {
+    responsive: true,
+    displaylogo: false
+  }).then(() => {
+    Plotly.addFrames('plot3d', frames);
+
+    // ── AUTO PLAY (cinematic) ────────────────────────────────────────────────
+    Plotly.animate('plot3d', null, {
+      frame: { duration: 40, redraw: true },
+      transition: { duration: 0 },
+      fromcurrent: true
+    });
+  });
+
+  plotInitialised = true;
+}
+
+initPlot();
+
+// ── camera view buttons ───────────────────────────────────────────────────────
+const CAMERAS = {
+  top:   { eye: { x: 0,   y: 0,   z: 2.5 }, up: { x: 0, y: 1, z: 0 } },
+  front: { eye: { x: 0,   y: 2.5, z: 0.3 }, up: { x: 0, y: 0, z: 1 } },
+  side:  { eye: { x: 2.5, y: 0,   z: 0.3 }, up: { x: 0, y: 0, z: 1 } },
+  free:  { eye: { x: 1.4, y: 1.4, z: 1.0 }, up: { x: 0, y: 0, z: 1 } },
+};
+
+function setView(name, btn) {
+  if (!plotInitialised) return;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  Plotly.relayout('plot3d', { 'scene.camera': CAMERAS[name] });
+}
+
+// ── altitude profile ──────────────────────────────────────────────────────────
+const altCanvas = document.getElementById('altProfile');
+if (altCanvas && plotData && plotData.U) {
+  const tooltip = document.getElementById('altTooltip');
+  const wrap    = altCanvas.parentElement;
+
+  function drawAltProfile() {
+    const W = wrap.clientWidth;
+    const H = wrap.clientHeight;
+    altCanvas.width  = W;
+    altCanvas.height = H;
+    const ctx  = altCanvas.getContext('2d');
+    const alts = plotData.U;
+    const n    = alts.length;
+    const minA = Math.min(...alts);
+    const maxA = Math.max(...alts);
+    const pad  = 18;
+
+    const px = i => pad + (i / (n - 1)) * (W - pad * 2);
+    const py = a => H - pad - ((a - minA) / (maxA - minA + 0.001)) * (H - pad * 2);
+
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(alts[0]));
+    for (let i = 1; i < n; i++) ctx.lineTo(px(i), py(alts[i]));
+    ctx.lineTo(px(n-1), H - pad);
+    ctx.lineTo(px(0),   H - pad);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(57,255,110,0.06)';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(alts[0]));
+    for (let i = 1; i < n; i++) ctx.lineTo(px(i), py(alts[i]));
+    ctx.strokeStyle = 'rgba(57,255,110,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.font = '9px "Share Tech Mono", monospace';
+    ctx.fillStyle = '#2e3e32';
+    ctx.textAlign = 'left';
+    ctx.fillText(maxA.toFixed(0) + ' m', 3, pad + 4);
+    ctx.fillText(minA.toFixed(0) + ' m', 3, H - pad + 1);
+  }
+
+  drawAltProfile();
+  window.addEventListener('resize', drawAltProfile);
+
+  altCanvas.addEventListener('mousemove', e => {
+    const alts = plotData.U;
+    const n    = alts.length;
+    const W    = altCanvas.width;
+    const pad  = 18;
+    const rect = altCanvas.getBoundingClientRect();
+    const mx   = e.clientX - rect.left;
+    const idx  = Math.max(0, Math.min(n - 1, Math.round(((mx - pad) / (W - pad * 2)) * (n - 1))));
+
+    const alt = alts[idx].toFixed(1);
+    const spd = plotData.spd[idx] !== undefined ? '  ·  ' + plotData.spd[idx].toFixed(1) + ' m/s' : '';
+
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.offsetX + 12) + 'px';
+    tooltip.style.top  = Math.max(2, e.offsetY - 28) + 'px';
+    tooltip.textContent = 'Alt: ' + alt + ' m' + spd;
+
+    if (plotInitialised && plotData.E) {
+      Plotly.restyle('plot3d', {
+        x: [[plotData.E[idx]]],
+        y: [[plotData.N[idx]]],
+        z: [[plotData.U[idx]]],
+        'marker.size': [9],
+        'marker.color': ['#ffffff'],
+      }, [1]);
+    }
+  });
+
+  altCanvas.addEventListener('mouseleave', () => {
+    tooltip.style.display = 'none';
+    if (plotInitialised && plotData.takeoff) {
+      Plotly.restyle('plot3d', {
+        x: [[plotData.takeoff.E]], y: [[plotData.takeoff.N]], z: [[plotData.takeoff.U]],
+        'marker.size': [7], 'marker.color': ['#39ff6e'],
+      }, [1]);
+    }
+  });
+}
+
+// ── mini sparklines ───────────────────────────────────────────────────────────
+function drawMiniGraph(id) {
+  const el = document.getElementById('mg-' + id);
+  if (!el) return;
+  const canvas = document.createElement('canvas');
+  canvas.width  = el.offsetWidth || 240;
+  canvas.height = 48;
+  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+  el.style.position = 'relative';
+  el.appendChild(canvas);
+  const ctx  = canvas.getContext('2d');
+  const W    = canvas.width;
+  const H    = canvas.height;
+  const seed = id.charCodeAt(0);
+  ctx.beginPath();
+  for (let i = 0; i < W; i++) {
+    const y = H * 0.5 - Math.sin(i * 0.05 + seed) * H * 0.3 - Math.sin(i * 0.02 + seed * 0.7) * H * 0.15;
+    i === 0 ? ctx.moveTo(i, y) : ctx.lineTo(i, y);
+  }
+  ctx.strokeStyle = 'rgba(57,255,110,0.3)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+Sessions.all().forEach(s => { if (document.getElementById('sc-' + s.id)) drawMiniGraph(s.id); });
+</script>
+{% endblock %}
