@@ -20,7 +20,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-from parser import parser
+from telemetry_parser import parser
 from visualization import add_enu_columns, get_plot_data
 
 # ---------------------------------------------------------------------------
