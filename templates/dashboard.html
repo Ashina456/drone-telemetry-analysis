@@ -831,19 +831,8 @@ buildSidebar();
 function initPlot() {
   if (!plotData || !plotData.E) return;
 
-  const E = plotData.E;
-  const N = plotData.N;
-  const U = plotData.U;
-
   const el = document.getElementById('plot3d');
   if (!el) return;
-
-  // ── LOCK RANGES (prevents zoom jumping) ────────────────────────────────────
-  const xMin = Math.min(...E), xMax = Math.max(...E);
-  const yMin = Math.min(...N), yMax = Math.max(...N);
-  const zMin = Math.min(...U), zMax = Math.max(...U);
-
-  const colorData = plotData.spd.length ? plotData.spd : U;
 
   // ── INITIAL TRACES ─────────────────────────────────────────────────────────
  const traces = [
@@ -913,9 +902,9 @@ function initPlot() {
       name: String(i),
       data: [
         {
-          x: E.slice(0, i),
-          y: N.slice(0, i),
-          z: U.slice(0, i),
+          x: plotData.E.slice(0, i),
+          y: plotData.N.slice(0, i),
+          z: plotData.U.slice(0, i),
           line: {
             color: plotData.spd.length ? plotData.spd : plotData.U,
             colorscale: 'Viridis',
@@ -923,9 +912,9 @@ function initPlot() {
           }
         },
         {
-          x: [E[i]],
-          y: [N[i]],
-          z: [U[i]]
+          x: [plotData.E[i]],
+          y: [plotData.N[i]],
+          z: [plotData.U[i]]
         }
       ]
     });
