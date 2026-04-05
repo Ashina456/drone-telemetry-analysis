@@ -16,7 +16,7 @@ from parser import parser
 from visualization import add_enu_columns, get_plot_data
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get("SECRET_KEY", "dev-fallback-key")
 
 # In-memory store — cleared on every server restart (fulfils "gone on reload")
 # Structure: { session_id: { id, filename, size_kb, label, df_gps, df_imu, plot_json } }
@@ -127,4 +127,4 @@ def dashboard_session(session_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=False, port=5000)
