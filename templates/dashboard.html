@@ -582,19 +582,8 @@ let plotInitialised = false;
 function initPlot() {
   if (!plotData || !plotData.E) return;
 
-  const E = plotData.E;
-  const N = plotData.N;
-  const U = plotData.U;
-
   const el = document.getElementById('plot3d');
   if (!el) return;
-
-  // ── LOCK RANGES (prevents zoom jumping) ────────────────────────────────────
-  const xMin = Math.min(...E), xMax = Math.max(...E);
-  const yMin = Math.min(...N), yMax = Math.max(...N);
-  const zMin = Math.min(...U), zMax = Math.max(...U);
-
-  const colorData = plotData.spd.length ? plotData.spd : U;
 
   // ── INITIAL TRACES ─────────────────────────────────────────────────────────
  const traces = [
@@ -643,14 +632,14 @@ function initPlot() {
   const frames = [];
   const step = 2; // smoother motion (lower = smoother)
 
-  for (let i = 1; i < E.length; i += step) {
+  for (let i = 1; i < plotData.E.length; i += step) {
     frames.push({
       name: String(i),
       data: [
         {
-          x: E.slice(0, i),
-          y: N.slice(0, i),
-          z: U.slice(0, i),
+          x: plotData.E.slice(0, i),
+          y: plotData.N.slice(0, i),
+          z: plotData.U.slice(0, i),
           line: {
             color: plotData.spd.length ? plotData.spd : plotData.U,
             colorscale: 'Viridis',
@@ -658,9 +647,9 @@ function initPlot() {
           }
         },
         {
-          x: [E[i]],
-          y: [N[i]],
-          z: [U[i]]
+          x: [plotData.E[i]],
+          y: [plotData.N[i]],
+          z: [plotData.U[i]]
         }
       ]
     });
@@ -739,10 +728,10 @@ initPlot();
 
 // ── camera view buttons ───────────────────────────────────────────────────────
 const CAMERAS = {
-  top:   { eye: { x: 0,   y: 0,   z: 2.5 }, up: { x: 0, y: 1, z: 0 } },
-  front: { eye: { x: 0,   y: 2.5, z: 0.3 }, up: { x: 0, y: 0, z: 1 } },
-  side:  { eye: { x: 2.5, y: 0,   z: 0.3 }, up: { x: 0, y: 0, z: 1 } },
-  free:  { eye: { x: 1.4, y: 1.4, z: 1.0 }, up: { x: 0, y: 0, z: 1 } },
+  top:   { eye: { x: 0,   y: 0,   z: 3.5 }, up: { x: 0, y: 1, z: 0 } },
+  front: { eye: { x: 0,   y: 3.5, z: 0.3 }, up: { x: 0, y: 0, z: 1 } },
+  side:  { eye: { x: 4.5, y: 0,   z: 2.0 }, up: { x: 0, y: 0, z: 1 } },
+  free:  { eye: { x: 3.0, y: 1.4, z: 2.0 }, up: { x: 0, y: 0, z: 1 } },
 };
 
 function setView(name, btn) {
